@@ -1,0 +1,8 @@
+.env
+state/test-social-formats.json
+__pycache__/
+logs/
+tmp/
+
+# This file must be tracked in GitHub so Actions remember what is already posted.
+!state/publisher-state.json

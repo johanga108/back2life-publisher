@@ -1,0 +1,17 @@
+{
+  "next_index": 3,
+  "platforms": {
+    "01-tweezers": {
+      "telegram": true,
+      "instagram": true
+    },
+    "practice-01-morning-body": {
+      "telegram": true,
+      "instagram": true
+    },
+    "02-toilet-paper": {
+      "telegram": true,
+      "instagram": true
+    }
+  }
+}

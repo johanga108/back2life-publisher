@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+  <rect width="1080" height="1350" fill="#f4efe8"/>
+  <rect x="18" y="18" width="1044" height="1314" fill="none" stroke="#d45151" stroke-width="36"/>
+  <rect x="90" y="90" width="900" height="1170" fill="none" stroke="#59798c" stroke-width="8" stroke-dasharray="28 22"/>
+  <line x1="540" y1="90" x2="540" y2="1260" stroke="#b4a18f" stroke-width="4"/>
+  <line x1="90" y1="675" x2="990" y2="675" stroke="#b4a18f" stroke-width="4"/>
+  <circle cx="540" cy="675" r="180" fill="#d9b86c" stroke="#59798c" stroke-width="10"/>
+  <text x="540" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="84" font-weight="700" fill="#293b45">TEST 4:5</text>
+  <text x="540" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="42" fill="#293b45">1080 x 1350</text>
+  <text x="540" y="1050" text-anchor="middle" font-family="Arial, sans-serif" font-size="44" fill="#293b45">CHECK THE OUTER RED FRAME</text>
+  <text x="540" y="1115" text-anchor="middle" font-family="Arial, sans-serif" font-size="36" fill="#293b45">If all four sides are visible, there is no crop.</text>
+</svg>

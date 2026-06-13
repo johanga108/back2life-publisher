@@ -1,0 +1,90 @@
+name: Publish Back2Life posts
+
+on:
+  schedule:
+    # 19:00-21:45 Moscow time. GitHub scheduled runs can be delayed, so we
+    # check several times and publish only when the next post is due.
+    - cron: "0,15,30,45 16-18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: back2life-publisher
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Create .env from GitHub secrets
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          CONTENT_SHEET_CSV_URL: ${{ secrets.CONTENT_SHEET_CSV_URL }}
+          ENABLED_PLATFORMS: ${{ secrets.ENABLED_PLATFORMS }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          names = [
+              "TELEGRAM_BOT_TOKEN",
+              "TELEGRAM_CHAT_ID",
+              "IG_ACCESS_TOKEN",
+              "IG_USER_ID",
+              "CLOUDINARY_CLOUD_NAME",
+              "CLOUDINARY_API_KEY",
+              "CLOUDINARY_API_SECRET",
+              "CONTENT_SHEET_CSV_URL",
+              "ENABLED_PLATFORMS",
+          ]
+          missing = [name for name in names if not os.environ.get(name)]
+          if missing:
+              raise SystemExit(f"Missing GitHub secrets: {', '.join(missing)}")
+          Path(".env").write_text(
+              "\n".join(f"{name}={os.environ[name]}" for name in names) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Publish next due post
+        id: publish
+        run: |
+          set +e
+          python3 scripts/publish_next.py
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Save publisher state
+        run: |
+          git config user.name "back2life-publisher-bot"
+          git config user.email "actions@github.com"
+          git add state/publisher-state.json
+          if git diff --cached --quiet; then
+            echo "No publisher state changes to commit."
+            exit 0
+          fi
+          git commit -m "Update publisher state"
+          git pull --rebase
+          git push
+
+      - name: Fail workflow if publishing failed
+        if: steps.publish.outputs.exit_code != '0'
+        run: exit "${{ steps.publish.outputs.exit_code }}"
