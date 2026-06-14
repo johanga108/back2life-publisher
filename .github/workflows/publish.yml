@@ -2,9 +2,9 @@ name: Publish Back2Life posts
 
 on:
   schedule:
-    # 19:00-21:45 Moscow time. GitHub scheduled runs can be delayed, so we
-    # check several times and publish only when the next post is due.
-    - cron: "0,15,30,45 16-18 * * *"
+    # 19:03-23:53 Moscow time. GitHub scheduled runs can be delayed or skipped,
+    # so we check often on off-peak minutes and publish only when a post is due.
+    - cron: "3,13,23,33,43,53 16-20 * * *"
   workflow_dispatch:
 
 permissions:

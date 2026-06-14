@@ -1,5 +1,5 @@
 {
-  "next_index": 3,
+  "next_index": 4,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -10,6 +10,10 @@
       "instagram": true
     },
     "02-toilet-paper": {
+      "telegram": true,
+      "instagram": true
+    },
+    "practice-02-resistance": {
       "telegram": true,
       "instagram": true
     }
