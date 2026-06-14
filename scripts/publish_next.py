@@ -47,13 +47,13 @@ def load_json(path: Path, default: Any) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def load_content() -> tuple[list[dict[str, str]], list[date]]:
+def load_content() -> tuple[list[dict[str, str]], list[date], bool]:
     posts: list[dict[str, str]] = load_json(POSTS_PATH, [])
     calendar: dict[str, Any] = load_json(CALENDAR_PATH, {})
     dates = [date.fromisoformat(value) for value in calendar.get("dates", [])]
     sheet_url = os.getenv("CONTENT_SHEET_CSV_URL")
     if not sheet_url:
-        return posts, dates
+        return posts, dates, False
     try:
         with urllib.request.urlopen(sheet_url, timeout=30) as response:
             rows = list(csv.reader(io.StringIO(response.read().decode("utf-8-sig"))))
@@ -62,7 +62,7 @@ def load_content() -> tuple[list[dict[str, str]], list[date]]:
             f"WARNING: Could not fetch CONTENT_SHEET_CSV_URL, using local content. {exc}",
             file=sys.stderr,
         )
-        return posts, dates
+        return posts, dates, False
     content_rows = [
         row for row in rows[1:] if any(value.strip() for value in row[:3])
     ]
@@ -84,7 +84,7 @@ def load_content() -> tuple[list[dict[str, str]], list[date]]:
                 "text": row[2].strip(),
             }
         )
-    return sheet_posts, sheet_dates
+    return sheet_posts, sheet_dates, True
 
 
 def save_state(state: dict[str, Any]) -> None:
@@ -599,7 +599,7 @@ def check_config() -> None:
             raise RuntimeError(
                 "IG_USER_ID does not match the account returned by IG_ACCESS_TOKEN"
             )
-        posts, _ = load_content()
+        posts, _, _ = load_content()
         image_post = next((post for post in posts if post.get("image")), None)
         if image_post is None:
             raise RuntimeError("No image posts available for Instagram check")
@@ -660,7 +660,7 @@ def main() -> int:
     if args.check_config:
         check_config()
         return 0
-    posts, dates = load_content()
+    posts, dates, using_sheet_dates = load_content()
     calendar: dict[str, Any] = load_json(CALENDAR_PATH, {})
     state: dict[str, Any] = load_json(
         STATE_PATH, {"next_index": 0, "platforms": {}}
@@ -697,7 +697,7 @@ def main() -> int:
         if now < scheduled_at:
             print("Nothing due yet.")
             return 0
-        if is_blocked(today, calendar):
+        if not using_sheet_dates and is_blocked(today, calendar):
             print("Today is blocked by the content calendar. Nothing sent.")
             return 0
     if args.dry_run:
