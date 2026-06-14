@@ -54,15 +54,27 @@ def load_content() -> tuple[list[dict[str, str]], list[date], bool]:
     sheet_url = os.getenv("CONTENT_SHEET_CSV_URL")
     if not sheet_url:
         return posts, dates, False
-    try:
-        with urllib.request.urlopen(sheet_url, timeout=30) as response:
-            rows = list(csv.reader(io.StringIO(response.read().decode("utf-8-sig"))))
-    except urllib.error.URLError as exc:
-        print(
-            f"WARNING: Could not fetch CONTENT_SHEET_CSV_URL, using local content. {exc}",
-            file=sys.stderr,
-        )
-        return posts, dates, False
+    last_error: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            with urllib.request.urlopen(sheet_url, timeout=30) as response:
+                rows = list(
+                    csv.reader(io.StringIO(response.read().decode("utf-8-sig")))
+                )
+            break
+        except urllib.error.URLError as exc:
+            last_error = exc
+            if attempt < 3:
+                print(
+                    "WARNING: Could not fetch CONTENT_SHEET_CSV_URL, "
+                    f"retrying ({attempt}/3): {exc}",
+                    file=sys.stderr,
+                )
+                time.sleep(5)
+    else:
+        raise RuntimeError(
+            "Could not fetch CONTENT_SHEET_CSV_URL after 3 attempts"
+        ) from last_error
     content_rows = [
         row for row in rows[1:] if any(value.strip() for value in row[:3])
     ]
