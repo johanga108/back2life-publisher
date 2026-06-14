@@ -88,3 +88,54 @@ jobs:
       - name: Fail workflow if publishing failed
         if: steps.publish.outputs.exit_code != '0'
         run: exit "${{ steps.publish.outputs.exit_code }}"
+
+      - name: Notify Telegram on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ALERT_CHAT_ID: ${{ secrets.TELEGRAM_ALERT_CHAT_ID }}
+          PUBLISH_EXIT_CODE: ${{ steps.publish.outputs.exit_code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+
+          token = os.getenv("TELEGRAM_BOT_TOKEN")
+          chat_id = os.getenv("TELEGRAM_ALERT_CHAT_ID")
+          if not token or not chat_id:
+              print("Telegram alert secret is not configured; skipping alert.")
+              raise SystemExit(0)
+
+          exit_code = os.getenv("PUBLISH_EXIT_CODE") or "unknown"
+          text = "\n".join(
+              [
+                  "Back2Life publisher: action needed",
+                  "",
+                  f"Workflow: {os.getenv('WORKFLOW_NAME', 'unknown')}",
+                  f"Branch: {os.getenv('BRANCH_NAME', 'unknown')}",
+                  f"Publish exit code: {exit_code}",
+                  f"Run: {os.getenv('RUN_URL', '')}",
+              ]
+          )
+          data = urllib.parse.urlencode(
+              {
+                  "chat_id": chat_id,
+                  "text": text,
+                  "disable_web_page_preview": "true",
+              }
+          ).encode("utf-8")
+          request = urllib.request.Request(
+              f"https://api.telegram.org/bot{token}/sendMessage",
+              data=data,
+              method="POST",
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              payload = json.loads(response.read().decode("utf-8"))
+          if not payload.get("ok"):
+              raise SystemExit(json.dumps(payload, ensure_ascii=False))
+          PY
