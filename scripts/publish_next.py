@@ -527,6 +527,25 @@ def upload_public_image(image_path: Path) -> str:
     return upload["secure_url"]
 
 
+def instagram_post_exists(
+    token: str, user_id: str, version: str, title: str
+) -> bool:
+    media = request_json(
+        meta_url("graph.instagram.com", version, f"{user_id}/media"),
+        fields={
+            "fields": "id,caption,timestamp",
+            "limit": "5",
+            "access_token": token,
+        },
+        method="GET",
+    )
+    for item in media.get("data", []):
+        caption = item.get("caption") or ""
+        if caption.strip().startswith(title):
+            return True
+    return False
+
+
 def publish_instagram(post: dict[str, str], image_path: Path | None) -> None:
     if image_path is None:
         print("instagram: text-only post skipped because Instagram requires media")
@@ -545,10 +564,16 @@ def publish_instagram(post: dict[str, str], image_path: Path | None) -> None:
             "access_token": token,
         },
     )
-    request_json(
-        meta_url("graph.instagram.com", version, f"{user_id}/media_publish"),
-        fields={"creation_id": creation["id"], "access_token": token},
-    )
+    try:
+        request_json(
+            meta_url("graph.instagram.com", version, f"{user_id}/media_publish"),
+            fields={"creation_id": creation["id"], "access_token": token},
+        )
+    except Exception:
+        if instagram_post_exists(token, user_id, version, post["title"]):
+            print("instagram: post is already visible after publish error")
+            return
+        raise
 
 
 def publish_facebook(post: dict[str, str], image_path: Path | None) -> None:
