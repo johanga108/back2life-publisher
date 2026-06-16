@@ -28,7 +28,7 @@ POSTS_PATH = ROOT / "content" / "posts.json"
 CALENDAR_PATH = ROOT / "content" / "publishing-calendar.json"
 STATE_PATH = ROOT / "state" / "publisher-state.json"
 ENV_PATH = ROOT / ".env"
-TITLE_FONT_SIZE = 58
+TITLE_FONT_SIZE = 76
 TITLE_TEXT_COLOR = (246, 239, 229, 255)
 TITLE_BOX_COLOR = (13, 29, 36, 184)
 TITLE_FONT_CANDIDATES = (
@@ -551,6 +551,7 @@ def titled_image_path(platform: str, image_path: Path, title: str) -> Path:
     if not source_path.exists():
         raise RuntimeError(f"{platform.capitalize()} JPEG not found: {source_path}")
 
+    font_path = title_font_path()
     digest = hashlib.sha1(
         "\0".join(
             (
@@ -559,6 +560,10 @@ def titled_image_path(platform: str, image_path: Path, title: str) -> Path:
                 str(source_path.stat().st_size),
                 str(source_path.stat().st_mtime_ns),
                 title,
+                str(TITLE_FONT_SIZE),
+                repr(TITLE_TEXT_COLOR),
+                repr(TITLE_BOX_COLOR),
+                font_path,
             )
         ).encode("utf-8")
     ).hexdigest()[:12]
@@ -585,7 +590,7 @@ def titled_image_path(platform: str, image_path: Path, title: str) -> Path:
         canvas = image.convert("RGBA")
     overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
-    font = ImageFont.truetype(title_font_path(), TITLE_FONT_SIZE)
+    font = ImageFont.truetype(font_path, TITLE_FONT_SIZE)
 
     width, height = canvas.size
     margin_x = 64
