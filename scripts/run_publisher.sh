@@ -13,9 +13,14 @@ fi
 trap 'rmdir "$lockdir"' EXIT
 
 exit_code=1
+python_bin="/Users/johanga/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3"
+if [ ! -x "$python_bin" ]; then
+  python_bin="/usr/bin/python3"
+fi
+
 for attempt in 1 2 3; do
   echo "$(date '+%Y-%m-%d %H:%M:%S %Z') publisher attempt $attempt"
-  /usr/bin/python3 scripts/publish_next.py
+  "$python_bin" scripts/publish_next.py
   exit_code=$?
   if [ "$exit_code" -eq 0 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S %Z') publisher succeeded"

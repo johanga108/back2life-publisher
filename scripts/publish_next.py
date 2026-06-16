@@ -28,6 +28,15 @@ POSTS_PATH = ROOT / "content" / "posts.json"
 CALENDAR_PATH = ROOT / "content" / "publishing-calendar.json"
 STATE_PATH = ROOT / "state" / "publisher-state.json"
 ENV_PATH = ROOT / ".env"
+TITLE_FONT_SIZE = 58
+TITLE_TEXT_COLOR = (246, 239, 229, 255)
+TITLE_BOX_COLOR = (13, 29, 36, 184)
+TITLE_FONT_CANDIDATES = (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "/Library/Fonts/Arial Bold.ttf",
+)
 
 
 def load_env() -> None:
@@ -276,7 +285,7 @@ def publish_telegram(post: dict[str, str], image_path: Path | None) -> None:
             fields={"chat_id": chat_id, "text": message, "parse_mode": "HTML"},
         )
         return
-    image_path = telegram_image_path(image_path)
+    image_path = titled_image_path("telegram", image_path, post["title"])
     if not image_path.exists():
         raise RuntimeError(f"Telegram JPEG not found: {image_path}")
     image_url = upload_public_image(image_path)
@@ -351,6 +360,7 @@ def publish_vk_direct(post: dict[str, str], image_path: Path | None) -> None:
         "guid": f"back2life-{post['id']}",
     }
     if image_path is not None:
+        image_path = titled_image_path("telegram", image_path, post["title"])
         upload_server = vk_api(
             "photos.getWallUploadServer",
             {"group_id": str(group_id)},
@@ -440,6 +450,7 @@ def publish_vk(post: dict[str, str], image_path: Path | None) -> None:
             "content": f"{post['title']}\n\n{post['text']}",
         }
         if image_path is not None:
+            image_path = titled_image_path("telegram", image_path, post["title"])
             image_url = upload_public_image(image_path)
             upload = request_postmypost(
                 "upload/init",
@@ -490,6 +501,133 @@ def instagram_image_path(image_path: Path) -> Path:
 
 def telegram_image_path(image_path: Path) -> Path:
     return ROOT / "assets" / "telegram" / f"{image_path.stem}.jpg"
+
+
+def platform_image_path(platform: str, image_path: Path) -> Path:
+    if platform == "instagram":
+        return instagram_image_path(image_path)
+    if platform in {"telegram", "vk"}:
+        return telegram_image_path(image_path)
+    if platform == "facebook":
+        return instagram_image_path(image_path)
+    raise RuntimeError(f"Unsupported image platform: {platform}")
+
+
+def title_font_path() -> str:
+    configured = os.getenv("TITLE_FONT_PATH")
+    candidates = (configured,) + TITLE_FONT_CANDIDATES if configured else TITLE_FONT_CANDIDATES
+    for candidate in candidates:
+        if candidate and Path(candidate).exists():
+            return candidate
+    raise RuntimeError(
+        "Could not find a title font. Set TITLE_FONT_PATH to a TrueType font file."
+    )
+
+
+def text_width(draw: Any, text: str, font: Any) -> int:
+    left, _, right, _ = draw.textbbox((0, 0), text, font=font)
+    return int(right - left)
+
+
+def wrap_title(draw: Any, title: str, font: Any, max_width: int) -> list[str]:
+    words = title.split()
+    if not words:
+        return [title]
+    lines: list[str] = []
+    current = words[0]
+    for word in words[1:]:
+        candidate = f"{current} {word}"
+        if text_width(draw, candidate, font) <= max_width:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+    return lines
+
+
+def titled_image_path(platform: str, image_path: Path, title: str) -> Path:
+    source_path = platform_image_path(platform, image_path)
+    if not source_path.exists():
+        raise RuntimeError(f"{platform.capitalize()} JPEG not found: {source_path}")
+
+    digest = hashlib.sha1(
+        "\0".join(
+            (
+                platform,
+                str(source_path),
+                str(source_path.stat().st_size),
+                str(source_path.stat().st_mtime_ns),
+                title,
+            )
+        ).encode("utf-8")
+    ).hexdigest()[:12]
+    output_path = (
+        ROOT
+        / "tmp"
+        / "titled-images"
+        / platform
+        / f"{source_path.stem}-{digest}.jpg"
+    )
+    if output_path.exists():
+        return output_path
+
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError as exc:
+        raise RuntimeError(
+            "Pillow is required to render titles on post images. "
+            "Install dependencies with: python3 -m pip install -r requirements.txt"
+        ) from exc
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with Image.open(source_path) as image:
+        canvas = image.convert("RGBA")
+    overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    font = ImageFont.truetype(title_font_path(), TITLE_FONT_SIZE)
+
+    width, height = canvas.size
+    margin_x = 64
+    margin_bottom = 76
+    padding_x = 36
+    padding_y = 28
+    line_gap = 12
+    max_text_width = width - (margin_x * 2) - (padding_x * 2)
+    lines = wrap_title(draw, title, font, max_text_width)
+    line_boxes = [draw.textbbox((0, 0), line, font=font) for line in lines]
+    line_widths = [right - left for left, _, right, _ in line_boxes]
+    line_heights = [bottom - top for _, top, _, bottom in line_boxes]
+    text_width_px = int(max(line_widths) if line_widths else 0)
+    text_height_px = int(sum(line_heights) + line_gap * (len(lines) - 1))
+
+    box_left = margin_x
+    box_bottom = height - margin_bottom
+    box_right = min(width - margin_x, box_left + text_width_px + padding_x * 2)
+    box_top = box_bottom - text_height_px - padding_y * 2
+    draw.rounded_rectangle(
+        (box_left, box_top, box_right, box_bottom),
+        radius=30,
+        fill=TITLE_BOX_COLOR,
+    )
+
+    text_x = box_left + padding_x
+    text_y = box_top + padding_y
+    for index, line in enumerate(lines):
+        left, top, _, bottom = line_boxes[index]
+        draw.text(
+            (text_x - left, text_y - top),
+            line,
+            font=font,
+            fill=TITLE_TEXT_COLOR,
+            stroke_width=1,
+            stroke_fill=(5, 15, 18, 180),
+        )
+        text_y += (bottom - top) + line_gap
+
+    titled = Image.alpha_composite(canvas, overlay).convert("RGB")
+    titled.save(output_path, format="JPEG", quality=92, optimize=True)
+    return output_path
 
 
 def cloudinary_signature(fields: dict[str, str], secret: str) -> str:
@@ -552,7 +690,7 @@ def publish_instagram(post: dict[str, str], image_path: Path | None) -> None:
         return
     token, user_id = require_env("IG_ACCESS_TOKEN", "IG_USER_ID")
     version = os.getenv("IG_API_VERSION", "v25.0")
-    jpeg_path = instagram_image_path(image_path)
+    jpeg_path = titled_image_path("instagram", image_path, post["title"])
     if not jpeg_path.exists():
         raise RuntimeError(f"Instagram JPEG not found: {jpeg_path}")
     image_url = upload_public_image(jpeg_path)
@@ -582,6 +720,7 @@ def publish_facebook(post: dict[str, str], image_path: Path | None) -> None:
         return
     token, page_id = require_env("FB_PAGE_ACCESS_TOKEN", "FB_PAGE_ID")
     version = os.getenv("FB_GRAPH_API_VERSION", "v25.0")
+    image_path = titled_image_path("facebook", image_path, post["title"])
     request_json(
         meta_url("graph.facebook.com", version, f"{page_id}/photos"),
         fields={
