@@ -1,5 +1,5 @@
 {
-  "next_index": 5,
+  "next_index": 6,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -22,7 +22,8 @@
       "instagram": true
     },
     "practice-03-wrong-goal": {
-      "telegram": true
+      "telegram": true,
+      "instagram": true
     }
   }
 }
