@@ -671,21 +671,38 @@ def upload_public_image(image_path: Path) -> str:
 
 
 def instagram_post_exists(
-    token: str, user_id: str, version: str, title: str
+    token: str,
+    user_id: str,
+    version: str,
+    title: str,
+    *,
+    attempts: int = 1,
+    delay_seconds: int = 5,
 ) -> bool:
-    media = request_json(
-        meta_url("graph.instagram.com", version, f"{user_id}/media"),
-        fields={
-            "fields": "id,caption,timestamp",
-            "limit": "5",
-            "access_token": token,
-        },
-        method="GET",
-    )
-    for item in media.get("data", []):
-        caption = item.get("caption") or ""
-        if caption.strip().startswith(title):
-            return True
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            media = request_json(
+                meta_url("graph.instagram.com", version, f"{user_id}/media"),
+                fields={
+                    "fields": "id,caption,timestamp",
+                    "limit": "10",
+                    "access_token": token,
+                },
+                method="GET",
+            )
+        except Exception as exc:
+            last_error = exc
+        else:
+            for item in media.get("data", []):
+                caption = item.get("caption") or ""
+                if caption.strip().startswith(title):
+                    return True
+            last_error = None
+        if attempt < attempts:
+            time.sleep(delay_seconds)
+    if last_error is not None:
+        print(f"instagram: visibility check failed: {last_error}", file=sys.stderr)
     return False
 
 
@@ -698,6 +715,9 @@ def publish_instagram(post: dict[str, str], image_path: Path | None) -> None:
     jpeg_path = titled_image_path("instagram", image_path, post["title"])
     if not jpeg_path.exists():
         raise RuntimeError(f"Instagram JPEG not found: {jpeg_path}")
+    if instagram_post_exists(token, user_id, version, post["title"], attempts=2):
+        print("instagram: post is already visible, skipping")
+        return
     image_url = upload_public_image(jpeg_path)
     creation = request_json(
         meta_url("graph.instagram.com", version, f"{user_id}/media"),
@@ -713,10 +733,18 @@ def publish_instagram(post: dict[str, str], image_path: Path | None) -> None:
             fields={"creation_id": creation["id"], "access_token": token},
         )
     except Exception:
-        if instagram_post_exists(token, user_id, version, post["title"]):
+        if instagram_post_exists(
+            token, user_id, version, post["title"], attempts=6, delay_seconds=10
+        ):
             print("instagram: post is already visible after publish error")
             return
         raise
+    if instagram_post_exists(
+        token, user_id, version, post["title"], attempts=6, delay_seconds=10
+    ):
+        print("instagram: post is visible")
+    else:
+        print("instagram: publish accepted; visibility check timed out")
 
 
 def publish_facebook(post: dict[str, str], image_path: Path | None) -> None:
