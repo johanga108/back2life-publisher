@@ -20,6 +20,9 @@
     "03-commissary": {
       "telegram": true,
       "instagram": true
+    },
+    "practice-03-wrong-goal": {
+      "telegram": true
     }
   }
 }
