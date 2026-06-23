@@ -28,6 +28,9 @@
     "04-survival": {
       "telegram": true,
       "instagram": true
+    },
+    "practice-04-small-wishes": {
+      "telegram": true
     }
   }
 }
