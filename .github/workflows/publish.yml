@@ -4,7 +4,7 @@ on:
   schedule:
     # GitHub scheduled runs can be delayed or skipped, so we check all day on
     # off-peak minutes and publish only when a post is due.
-    - cron: "7,17,27,37,47,57 * * * *"
+    - cron: "7 * * * *"
   workflow_dispatch:
 
 permissions:
