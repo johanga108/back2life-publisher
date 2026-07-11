@@ -1,5 +1,5 @@
 {
-  "next_index": 12,
+  "next_index": 13,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -50,7 +50,8 @@
       "instagram": true
     },
     "06-code-names": {
-      "telegram": true
+      "telegram": true,
+      "instagram": true
     }
   }
 }
