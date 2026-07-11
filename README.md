@@ -1,15 +1,15 @@
 # Back2Life scheduled posts
 
-This folder contains a 57-post publishing plan for Telegram, VK, and
-Instagram: 28 visual posts about detention experience plus 29 short
-practice/life posts whose images are still pending. Facebook Page support is
-optional and currently disabled.
+This folder contains a 57-post publishing plan for Telegram, VK, Instagram,
+and optional Threads cross-posting: 28 visual posts about detention experience
+plus 29 short practice/life posts whose images are still pending. Facebook
+Page support is optional and currently disabled.
 
 ## Contents
 
 - `assets/posts/`: 28 generated portrait images for the visual series.
 - `assets/instagram/`: JPEG copies uploaded to Cloudinary one image post at a
-  time for Instagram's public-URL publishing API.
+  time for Instagram and Threads public-URL publishing APIs.
 - `assets/telegram/`: square JPEG copies for Telegram previews.
 - `content/posts.json`: post order, titles, image paths, and captions.
 - `content/publishing-calendar.json`: allowed publication dates, 19:00 Moscow

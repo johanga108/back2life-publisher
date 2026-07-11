@@ -31,6 +31,7 @@ ENV_PATH = ROOT / ".env"
 TITLE_FONT_SIZE = 76
 TITLE_TEXT_COLOR = (246, 239, 229, 255)
 TITLE_BOX_COLOR = (13, 29, 36, 184)
+THREADS_TEXT_LIMIT = 500
 TITLE_FONT_CANDIDATES = (
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
@@ -263,7 +264,7 @@ def require_env(*names: str) -> list[str]:
 
 
 def enabled_platforms() -> tuple[str, ...]:
-    supported = ("telegram", "vk", "instagram", "facebook")
+    supported = ("telegram", "vk", "instagram", "threads", "facebook")
     value = os.getenv("ENABLED_PLATFORMS", "telegram,vk,instagram")
     requested = tuple(
         platform.strip() for platform in value.split(",") if platform.strip()
@@ -510,7 +511,7 @@ def telegram_image_path(image_path: Path) -> Path:
 
 
 def platform_image_path(platform: str, image_path: Path) -> Path:
-    if platform == "instagram":
+    if platform in {"instagram", "threads"}:
         return instagram_image_path(image_path)
     if platform in {"telegram", "vk"}:
         return telegram_image_path(image_path)
@@ -753,6 +754,131 @@ def publish_instagram(post: dict[str, str], image_path: Path | None) -> None:
         print("instagram: publish accepted; visibility check timed out")
 
 
+def split_threads_text(text: str) -> list[str]:
+    chunks: list[str] = []
+    remaining = text.strip()
+    while remaining:
+        if len(remaining) <= THREADS_TEXT_LIMIT:
+            chunks.append(remaining)
+            break
+        split_at = remaining.rfind("\n\n", 0, THREADS_TEXT_LIMIT + 1)
+        if split_at < THREADS_TEXT_LIMIT // 2:
+            split_at = remaining.rfind("\n", 0, THREADS_TEXT_LIMIT + 1)
+        if split_at < THREADS_TEXT_LIMIT // 2:
+            split_at = remaining.rfind(" ", 0, THREADS_TEXT_LIMIT + 1)
+        if split_at < THREADS_TEXT_LIMIT // 2:
+            split_at = THREADS_TEXT_LIMIT
+        chunks.append(remaining[:split_at].strip())
+        remaining = remaining[split_at:].strip()
+    return chunks
+
+
+def threads_post_exists(
+    token: str,
+    user_id: str,
+    version: str,
+    title: str,
+    *,
+    attempts: int = 1,
+    delay_seconds: int = 5,
+) -> bool:
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            media = request_json(
+                meta_url("graph.threads.net", version, f"{user_id}/threads"),
+                fields={
+                    "fields": "id,text,timestamp",
+                    "limit": "10",
+                    "access_token": token,
+                },
+                method="GET",
+            )
+        except Exception as exc:
+            last_error = exc
+        else:
+            for item in media.get("data", []):
+                text = item.get("text") or ""
+                if text.strip().startswith(title):
+                    return True
+            last_error = None
+        if attempt < attempts:
+            time.sleep(delay_seconds)
+    if last_error is not None:
+        print(f"threads: visibility check failed: {last_error}", file=sys.stderr)
+    return False
+
+
+def create_threads_container(
+    token: str,
+    user_id: str,
+    version: str,
+    fields: dict[str, str],
+) -> str:
+    creation = request_json(
+        meta_url("graph.threads.net", version, f"{user_id}/threads"),
+        fields={**fields, "access_token": token},
+    )
+    return str(creation["id"])
+
+
+def publish_threads_container(
+    token: str,
+    user_id: str,
+    version: str,
+    creation_id: str,
+) -> str:
+    published = request_json(
+        meta_url("graph.threads.net", version, f"{user_id}/threads_publish"),
+        fields={"creation_id": creation_id, "access_token": token},
+    )
+    return str(published["id"])
+
+
+def publish_threads(post: dict[str, str], image_path: Path | None) -> None:
+    token, user_id = require_env("THREADS_ACCESS_TOKEN", "THREADS_USER_ID")
+    version = os.getenv("THREADS_API_VERSION", "v1.0")
+    if threads_post_exists(token, user_id, version, post["title"], attempts=2):
+        print("threads: post is already visible, skipping")
+        return
+
+    chunks = split_threads_text(f"{post['title']}\n\n{post['text']}")
+    if not chunks:
+        raise RuntimeError("Threads post text is empty")
+
+    first_fields = {"media_type": "TEXT", "text": chunks[0]}
+    if image_path is not None:
+        jpeg_path = titled_image_path("threads", image_path, post["title"])
+        if not jpeg_path.exists():
+            raise RuntimeError(f"Threads JPEG not found: {jpeg_path}")
+        first_fields = {
+            "media_type": "IMAGE",
+            "image_url": upload_public_image(jpeg_path),
+            "text": chunks[0],
+        }
+
+    root_creation_id = create_threads_container(token, user_id, version, first_fields)
+    root_post_id = publish_threads_container(token, user_id, version, root_creation_id)
+    print("threads: root post sent")
+
+    for chunk in chunks[1:]:
+        reply_creation_id = create_threads_container(
+            token,
+            user_id,
+            version,
+            {"media_type": "TEXT", "text": chunk, "reply_to_id": root_post_id},
+        )
+        publish_threads_container(token, user_id, version, reply_creation_id)
+        print("threads: reply sent")
+
+    if threads_post_exists(
+        token, user_id, version, post["title"], attempts=6, delay_seconds=10
+    ):
+        print("threads: post is visible")
+    else:
+        print("threads: publish accepted; visibility check timed out")
+
+
 def publish_facebook(post: dict[str, str], image_path: Path | None) -> None:
     if image_path is None:
         print("facebook: text-only post skipped because Facebook image support is disabled")
@@ -827,6 +953,34 @@ def check_config() -> None:
                 )
         print(f"Instagram account: @{instagram.get('username', instagram_user_id)}")
         print(f"Instagram public image: {public_image_url}")
+    if "threads" in targets:
+        threads_token, threads_user_id = require_env(
+            "THREADS_ACCESS_TOKEN", "THREADS_USER_ID"
+        )
+        threads_version = os.getenv("THREADS_API_VERSION", "v1.0")
+        threads = request_json(
+            meta_url("graph.threads.net", threads_version, "me"),
+            fields={"fields": "id,username", "access_token": threads_token},
+            method="GET",
+        )
+        if str(threads.get("id")) != threads_user_id:
+            raise RuntimeError(
+                "THREADS_USER_ID does not match the account returned by "
+                "THREADS_ACCESS_TOKEN"
+            )
+        posts, _, _ = load_content()
+        image_post = next((post for post in posts if post.get("image")), None)
+        if image_post is None:
+            raise RuntimeError("No image posts available for Threads check")
+        first_image = instagram_image_path(ROOT / image_post["image"])
+        public_image_url = upload_public_image(first_image)
+        with urllib.request.urlopen(public_image_url, timeout=30) as response:
+            if response.status != 200:
+                raise RuntimeError(
+                    f"Threads image URL returned HTTP {response.status}"
+                )
+        print(f"Threads account: @{threads.get('username', threads_user_id)}")
+        print(f"Threads public image: {public_image_url}")
     if "facebook" in targets:
         facebook_token, facebook_page_id = require_env(
             "FB_PAGE_ACCESS_TOKEN", "FB_PAGE_ID"
@@ -846,7 +1000,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--platform",
-        choices=("all", "telegram", "vk", "instagram", "facebook"),
+        choices=("all", "telegram", "vk", "instagram", "threads", "facebook"),
         default="all",
         help="Publish to every platform or resume only one of them.",
     )
@@ -924,6 +1078,7 @@ def main() -> int:
         "telegram": publish_telegram,
         "vk": publish_vk,
         "instagram": publish_instagram,
+        "threads": publish_threads,
         "facebook": publish_facebook,
     }
     for target in targets:

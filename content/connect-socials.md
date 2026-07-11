@@ -109,6 +109,46 @@ CLOUDINARY_API_SECRET=...
 Токен Instagram нужно обновлять до истечения срока действия. При ошибке токена
 автоматизация остановится на текущем посте и не продвинет очередь дальше.
 
+## Threads
+
+Threads публикуется через отдельный Threads API. Для одного длинного текста
+скрипт создаёт root-пост с картинкой, а продолжение отправляет reply-постами в
+тот же thread, потому один пост Threads ограничен коротким текстом.
+
+Что потребуется:
+
+- Threads-профиль, связанный с Instagram-аккаунтом;
+- приложение в [Meta for Developers](https://developers.facebook.com/apps/);
+- права `threads_basic` и `threads_content_publish`;
+- `THREADS_ACCESS_TOKEN`;
+- `THREADS_USER_ID`.
+
+Что сделать:
+
+1. Подключите Threads API в том же Meta-приложении или в отдельном приложении.
+2. Выдайте приложению права `threads_basic` и `threads_content_publish`.
+3. Получите токен Threads и ID пользователя Threads.
+4. Заполните:
+
+```dotenv
+THREADS_ACCESS_TOKEN=...
+THREADS_USER_ID=...
+THREADS_API_VERSION=v1.0
+```
+
+5. Проверьте конфигурацию:
+
+```bash
+ENABLED_PLATFORMS=telegram,instagram,threads python3 scripts/publish_next.py --check-config
+```
+
+6. После успешной проверки добавьте `threads` в `ENABLED_PLATFORMS` локально и
+   в GitHub Secrets:
+
+```dotenv
+ENABLED_PLATFORMS=telegram,instagram,threads
+```
+
 ## Facebook: пропускаем
 
 Автопубликация через официальный API работает для Facebook Page. Публикация в
@@ -131,6 +171,7 @@ python3 scripts/publish_next.py --check-config
 - Telegram-бота и канал;
 - подключенное к Postmypost сообщество VK;
 - Instagram-аккаунт, загрузку JPEG в Cloudinary и доступность HTTPS-ссылки;
+- Threads-аккаунт, если `threads` добавлен в `ENABLED_PLATFORMS`;
 
 Она ничего не публикует.
 

@@ -36,6 +36,9 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          THREADS_API_VERSION: ${{ secrets.THREADS_API_VERSION }}
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
@@ -57,11 +60,27 @@ jobs:
               "CONTENT_SHEET_CSV_URL",
               "ENABLED_PLATFORMS",
           ]
+          optional_names = [
+              "THREADS_ACCESS_TOKEN",
+              "THREADS_USER_ID",
+              "THREADS_API_VERSION",
+          ]
+          enabled_platforms = {
+              value.strip()
+              for value in os.environ.get("ENABLED_PLATFORMS", "").split(",")
+          }
+          if "threads" in enabled_platforms:
+              names.extend(["THREADS_ACCESS_TOKEN", "THREADS_USER_ID"])
           missing = [name for name in names if not os.environ.get(name)]
           if missing:
               raise SystemExit(f"Missing GitHub secrets: {', '.join(missing)}")
           Path(".env").write_text(
-              "\n".join(f"{name}={os.environ[name]}" for name in names) + "\n",
+              "\n".join(
+                  f"{name}={os.environ[name]}"
+                  for name in names + optional_names
+                  if os.environ.get(name)
+              )
+              + "\n",
               encoding="utf-8",
           )
           PY
