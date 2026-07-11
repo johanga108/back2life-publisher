@@ -70,8 +70,9 @@ jobs:
         id: publish
         run: |
           set +e
-          python3 scripts/publish_next.py
+          python3 scripts/publish_next.py > publisher-output.log 2>&1
           code=$?
+          cat publisher-output.log
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
 
@@ -115,6 +116,12 @@ jobs:
               raise SystemExit(0)
 
           exit_code = os.getenv("PUBLISH_EXIT_CODE") or "unknown"
+          log_path = "publisher-output.log"
+          publisher_output = ""
+          if os.path.exists(log_path):
+              publisher_output = open(log_path, encoding="utf-8").read().strip()
+              if len(publisher_output) > 2500:
+                  publisher_output = "... " + publisher_output[-2500:]
           text = "\n".join(
               [
                   "Back2Life publisher: action needed",
@@ -123,8 +130,13 @@ jobs:
                   f"Branch: {os.getenv('BRANCH_NAME', 'unknown')}",
                   f"Publish exit code: {exit_code}",
                   f"Run: {os.getenv('RUN_URL', '')}",
+                  "",
+                  "Publisher output:",
+                  publisher_output or "No output captured.",
               ]
           )
+          if len(text) > 3900:
+              text = text[:3800] + "\n\n... truncated"
           data = urllib.parse.urlencode(
               {
                   "chat_id": chat_id,

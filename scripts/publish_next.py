@@ -217,8 +217,14 @@ def request_json(
     else:
         data = urllib.parse.urlencode(fields or {}).encode("utf-8")
         request = urllib.request.Request(url, data=data, method=method)
-    with urllib.request.urlopen(request, timeout=60) as response:
-        payload = json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"HTTP {exc.code}: {body}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Request failed: {exc}") from exc
     if payload.get("ok") is False or "error" in payload:
         raise RuntimeError(json.dumps(payload, ensure_ascii=False))
     return payload
