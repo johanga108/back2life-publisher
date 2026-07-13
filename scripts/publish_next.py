@@ -277,6 +277,25 @@ def enabled_platforms() -> tuple[str, ...]:
     return requested
 
 
+def nonblocking_platforms(enabled: tuple[str, ...]) -> tuple[str, ...]:
+    raw_value = os.getenv("NONBLOCKING_PLATFORMS")
+    value = raw_value if raw_value is not None else "threads"
+    requested = tuple(
+        platform.strip() for platform in value.split(",") if platform.strip()
+    )
+    invalid = [
+        platform
+        for platform in requested
+        if raw_value is not None and platform not in enabled
+    ]
+    if invalid:
+        raise RuntimeError(
+            "NONBLOCKING_PLATFORMS must be enabled platforms: "
+            + ", ".join(invalid)
+        )
+    return tuple(platform for platform in requested if platform in enabled)
+
+
 def publish_telegram(post: dict[str, str], image_path: Path | None) -> None:
     token, chat_id = require_env("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")
     base = f"https://api.telegram.org/bot{token}"
@@ -1076,6 +1095,10 @@ def main() -> int:
 
     completed = state["platforms"].setdefault(post["id"], {})
     all_targets = enabled_platforms()
+    nonblocking_targets = set(nonblocking_platforms(all_targets))
+    required_targets = tuple(
+        target for target in all_targets if target not in nonblocking_targets
+    ) or all_targets
     targets = all_targets if args.platform == "all" else (args.platform,)
     print(f"Post {index + 1}/{len(posts)}: {post['title']}")
     print(f"Image: {image_path if image_path is not None else 'none'}")
@@ -1109,6 +1132,7 @@ def main() -> int:
         "facebook": publish_facebook,
     }
     errors: list[str] = []
+    blocking_errors: list[str] = []
     for target in targets:
         if completed.get(target):
             print(f"{target}: already sent, skipping")
@@ -1116,7 +1140,10 @@ def main() -> int:
         try:
             publishers[target](post, image_path)
         except Exception as exc:
-            errors.append(f"{target}: {exc}")
+            error = f"{target}: {exc}"
+            errors.append(error)
+            if args.platform != "all" or target not in nonblocking_targets:
+                blocking_errors.append(error)
             print(f"{target}: failed: {exc}", file=sys.stderr)
             save_state(state)
             continue
@@ -1125,17 +1152,29 @@ def main() -> int:
             save_state(state)
             print(f"{target}: sent")
 
-    if all(completed.get(target) for target in all_targets):
+    if all(completed.get(target) for target in required_targets):
         state["next_index"] += 1
         save_state(state)
+        remaining_nonblocking = [
+            target
+            for target in all_targets
+            if target in nonblocking_targets and not completed.get(target)
+        ]
+        if remaining_nonblocking:
+            print(
+                "Advanced without nonblocking platforms: "
+                + ", ".join(remaining_nonblocking)
+            )
         if state["next_index"] < len(posts):
             print(f"Advanced to post {state['next_index'] + 1}.")
         else:
             print("Published the final prepared post.")
     else:
-        print("Post remains current until all enabled platforms succeed.")
+        print("Post remains current until all required platforms succeed.")
+    if blocking_errors:
+        raise RuntimeError("Publishing failed for " + "; ".join(blocking_errors))
     if errors:
-        raise RuntimeError("Publishing failed for " + "; ".join(errors))
+        print("Nonblocking publish failures: " + "; ".join(errors), file=sys.stderr)
     return 0
 
 
