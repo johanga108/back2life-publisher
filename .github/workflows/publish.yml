@@ -92,6 +92,13 @@ jobs:
           python3 scripts/publish_next.py > publisher-output.log 2>&1
           code=$?
           cat publisher-output.log
+          {
+            echo "## Publisher output"
+            echo
+            echo '```text'
+            cat publisher-output.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           exit 0
 
@@ -168,8 +175,11 @@ jobs:
               data=data,
               method="POST",
           )
-          with urllib.request.urlopen(request, timeout=30) as response:
-              payload = json.loads(response.read().decode("utf-8"))
-          if not payload.get("ok"):
-              raise SystemExit(json.dumps(payload, ensure_ascii=False))
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  payload = json.loads(response.read().decode("utf-8"))
+              if not payload.get("ok"):
+                  print(json.dumps(payload, ensure_ascii=False))
+          except Exception as exc:
+              print(f"Telegram alert failed: {exc}")
           PY
