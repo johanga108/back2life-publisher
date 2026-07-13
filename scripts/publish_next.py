@@ -847,19 +847,36 @@ def publish_threads(post: dict[str, str], image_path: Path | None) -> None:
         raise RuntimeError("Threads post text is empty")
 
     first_fields = {"media_type": "TEXT", "text": chunks[0]}
+    root_post_id = ""
     if image_path is not None:
         jpeg_path = titled_image_path("threads", image_path, post["title"])
         if not jpeg_path.exists():
             raise RuntimeError(f"Threads JPEG not found: {jpeg_path}")
-        first_fields = {
+        image_fields = {
             "media_type": "IMAGE",
             "image_url": upload_public_image(jpeg_path),
             "text": chunks[0],
         }
+        try:
+            root_creation_id = create_threads_container(
+                token, user_id, version, image_fields
+            )
+            root_post_id = publish_threads_container(
+                token, user_id, version, root_creation_id
+            )
+        except Exception as exc:
+            print(
+                "threads: image root post failed, retrying text-only: "
+                f"{exc}",
+                file=sys.stderr,
+            )
+        else:
+            print("threads: root post sent")
 
-    root_creation_id = create_threads_container(token, user_id, version, first_fields)
-    root_post_id = publish_threads_container(token, user_id, version, root_creation_id)
-    print("threads: root post sent")
+    if not root_post_id:
+        root_creation_id = create_threads_container(token, user_id, version, first_fields)
+        root_post_id = publish_threads_container(token, user_id, version, root_creation_id)
+        print("threads: root post sent")
 
     for chunk in chunks[1:]:
         reply_creation_id = create_threads_container(
