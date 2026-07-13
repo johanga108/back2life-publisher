@@ -940,6 +940,15 @@ def check_config() -> None:
             raise RuntimeError(
                 "IG_USER_ID does not match the account returned by IG_ACCESS_TOKEN"
             )
+        publishing_limit = request_json(
+            meta_url(
+                "graph.instagram.com",
+                instagram_version,
+                f"{instagram_user_id}/content_publishing_limit",
+            ),
+            fields={"fields": "config,quota_usage", "access_token": instagram_token},
+            method="GET",
+        )
         posts, _, _ = load_content()
         image_post = next((post for post in posts if post.get("image")), None)
         if image_post is None:
@@ -952,6 +961,7 @@ def check_config() -> None:
                     f"Instagram image URL returned HTTP {response.status}"
                 )
         print(f"Instagram account: @{instagram.get('username', instagram_user_id)}")
+        print(f"Instagram publishing limit: {publishing_limit.get('data', [])}")
         print(f"Instagram public image: {public_image_url}")
     if "threads" in targets:
         threads_token, threads_user_id = require_env(
@@ -1081,14 +1091,22 @@ def main() -> int:
         "threads": publish_threads,
         "facebook": publish_facebook,
     }
+    errors: list[str] = []
     for target in targets:
         if completed.get(target):
             print(f"{target}: already sent, skipping")
             continue
-        publishers[target](post, image_path)
-        completed[target] = True
-        save_state(state)
-        print(f"{target}: sent")
+        try:
+            publishers[target](post, image_path)
+        except Exception as exc:
+            errors.append(f"{target}: {exc}")
+            print(f"{target}: failed: {exc}", file=sys.stderr)
+            save_state(state)
+            continue
+        else:
+            completed[target] = True
+            save_state(state)
+            print(f"{target}: sent")
 
     if all(completed.get(target) for target in all_targets):
         state["next_index"] += 1
@@ -1099,6 +1117,8 @@ def main() -> int:
             print("Published the final prepared post.")
     else:
         print("Post remains current until all enabled platforms succeed.")
+    if errors:
+        raise RuntimeError("Publishing failed for " + "; ".join(errors))
     return 0
 
 
