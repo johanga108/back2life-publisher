@@ -40,6 +40,21 @@ TITLE_FONT_CANDIDATES = (
 )
 
 
+class HttpRequestError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        body: str,
+        headers: dict[str, str],
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.body = body
+        self.headers = headers
+
+
 def load_env() -> None:
     if not ENV_PATH.exists():
         return
@@ -223,7 +238,25 @@ def request_json(
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {exc.code}: {body}") from exc
+        diagnostic_headers = {
+            name: value
+            for name, value in exc.headers.items()
+            if name.lower()
+            in {
+                "facebook-api-version",
+                "x-business-use-case-usage",
+                "x-fb-debug",
+                "x-fb-request-id",
+                "x-fb-rev",
+                "x-fb-trace-id",
+            }
+        }
+        raise HttpRequestError(
+            f"HTTP {exc.code}: {body}",
+            status_code=exc.code,
+            body=body,
+            headers=diagnostic_headers,
+        ) from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Request failed: {exc}") from exc
     if payload.get("ok") is False or "error" in payload:
@@ -792,6 +825,64 @@ def split_threads_text(text: str) -> list[str]:
     return chunks
 
 
+def threads_diagnostics_enabled() -> bool:
+    return os.getenv("THREADS_DIAGNOSTICS", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def compact_error_body(body: str, limit: int = 500) -> str:
+    text = " ".join(body.split())
+    if len(text) > limit:
+        return text[: limit - 3] + "..."
+    return text
+
+
+def diagnose_threads_error(
+    token: str,
+    user_id: str,
+    version: str,
+    stage: str,
+    exc: Exception,
+) -> None:
+    if not threads_diagnostics_enabled():
+        return
+    print(f"threads diagnostic: stage={stage}", file=sys.stderr)
+    if isinstance(exc, HttpRequestError):
+        print(f"threads diagnostic: http_status={exc.status_code}", file=sys.stderr)
+        if exc.body:
+            print(
+                "threads diagnostic: response_body="
+                + compact_error_body(exc.body),
+                file=sys.stderr,
+            )
+        for name, value in sorted(exc.headers.items()):
+            print(f"threads diagnostic: {name}={value}", file=sys.stderr)
+    else:
+        print(f"threads diagnostic: error={exc}", file=sys.stderr)
+
+    try:
+        account = request_json(
+            meta_url("graph.threads.net", version, "me"),
+            fields={"fields": "id,username", "access_token": token},
+            method="GET",
+        )
+    except Exception as account_exc:
+        print(f"threads diagnostic: /me failed: {account_exc}", file=sys.stderr)
+        return
+    account_id = str(account.get("id", ""))
+    username = account.get("username") or "unknown"
+    print(
+        "threads diagnostic: /me ok "
+        f"id_matches_config={account_id == user_id} "
+        f"username=@{username}",
+        file=sys.stderr,
+    )
+
+
 def threads_post_exists(
     token: str,
     user_id: str,
@@ -824,6 +915,7 @@ def threads_post_exists(
         if attempt < attempts:
             time.sleep(delay_seconds)
     if last_error is not None:
+        diagnose_threads_error(token, user_id, version, "visibility check", last_error)
         print(f"threads: visibility check failed: {last_error}", file=sys.stderr)
     return False
 
@@ -884,6 +976,7 @@ def publish_threads(post: dict[str, str], image_path: Path | None) -> None:
                 token, user_id, version, root_creation_id
             )
         except Exception as exc:
+            diagnose_threads_error(token, user_id, version, "image root post", exc)
             print(
                 "threads: image root post failed, retrying text-only: "
                 f"{exc}",
@@ -893,18 +986,30 @@ def publish_threads(post: dict[str, str], image_path: Path | None) -> None:
             print("threads: root post sent")
 
     if not root_post_id:
-        root_creation_id = create_threads_container(token, user_id, version, first_fields)
-        root_post_id = publish_threads_container(token, user_id, version, root_creation_id)
+        try:
+            root_creation_id = create_threads_container(
+                token, user_id, version, first_fields
+            )
+            root_post_id = publish_threads_container(
+                token, user_id, version, root_creation_id
+            )
+        except Exception as exc:
+            diagnose_threads_error(token, user_id, version, "text root post", exc)
+            raise
         print("threads: root post sent")
 
     for chunk in chunks[1:]:
-        reply_creation_id = create_threads_container(
-            token,
-            user_id,
-            version,
-            {"media_type": "TEXT", "text": chunk, "reply_to_id": root_post_id},
-        )
-        publish_threads_container(token, user_id, version, reply_creation_id)
+        try:
+            reply_creation_id = create_threads_container(
+                token,
+                user_id,
+                version,
+                {"media_type": "TEXT", "text": chunk, "reply_to_id": root_post_id},
+            )
+            publish_threads_container(token, user_id, version, reply_creation_id)
+        except Exception as exc:
+            diagnose_threads_error(token, user_id, version, "reply post", exc)
+            raise
         print("threads: reply sent")
 
     if threads_post_exists(
