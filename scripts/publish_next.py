@@ -765,6 +765,45 @@ def instagram_post_exists(
     return False
 
 
+def wait_for_instagram_container(
+    token: str,
+    version: str,
+    creation_id: str,
+    *,
+    attempts: int = 12,
+    delay_seconds: int = 5,
+) -> None:
+    for attempt in range(1, attempts + 1):
+        try:
+            status = request_json(
+                meta_url("graph.instagram.com", version, creation_id),
+                fields={
+                    "fields": "status_code,status",
+                    "access_token": token,
+                },
+                method="GET",
+            )
+        except Exception as exc:
+            print(
+                "instagram: could not check media container status, "
+                f"publishing anyway: {exc}",
+                file=sys.stderr,
+            )
+            return
+        status_code = str(status.get("status_code", "")).upper()
+        if status_code in {"FINISHED", "READY"}:
+            if attempt > 1:
+                print("instagram: media container is ready")
+            return
+        if status_code == "ERROR":
+            detail = status.get("status") or status
+            raise RuntimeError(f"Instagram media container failed: {detail}")
+        if attempt < attempts:
+            print(f"instagram: media container status is {status_code or 'pending'}")
+            time.sleep(delay_seconds)
+    print("instagram: media container readiness timed out, publishing anyway")
+
+
 def publish_instagram(post: dict[str, str], image_path: Path | None) -> None:
     if image_path is None:
         print("instagram: text-only post skipped because Instagram requires media")
@@ -786,6 +825,7 @@ def publish_instagram(post: dict[str, str], image_path: Path | None) -> None:
             "access_token": token,
         },
     )
+    wait_for_instagram_container(token, version, str(creation["id"]))
     try:
         request_json(
             meta_url("graph.instagram.com", version, f"{user_id}/media_publish"),
