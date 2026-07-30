@@ -1,5 +1,5 @@
 {
-  "next_index": 18,
+  "next_index": 19,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -70,6 +70,10 @@
       "instagram": true
     },
     "practice-10-pause": {
+      "telegram": true,
+      "instagram": true
+    },
+    "27-release-control": {
       "telegram": true,
       "instagram": true
     }
