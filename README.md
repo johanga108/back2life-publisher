@@ -46,10 +46,12 @@ fails, rerun the command: the successful platform will not receive a duplicate.
 The automation should run once per day at 19:00 Europe/Moscow. On non-due,
 early, or blocked dates the publisher exits without sending anything.
 
-The editable source for publication dates, titles, and post texts is the
-Google Sheets tab `Codex`. The publisher downloads it before each run. Image
-paths remain fixed in `content/posts.json`; practice/life posts need generated
-images before they can be published to Instagram.
+The editable source for titles and post texts is the Google Sheets tab
+`Codex`. The publisher downloads it before each run. Publication dates are
+currently pinned to `content/publishing-calendar.json` so emergency date moves
+can be committed with the queue state. Image paths remain fixed in
+`content/posts.json`; practice/life posts need generated images before they can
+be published to Instagram.
 
 ## Calendar assumptions
 

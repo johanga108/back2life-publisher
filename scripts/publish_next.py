@@ -121,6 +121,8 @@ def load_content() -> tuple[list[dict[str, str]], list[date], bool]:
                 "text": row[2].strip(),
             }
         )
+    if calendar.get("use_local_dates_with_sheet_content"):
+        return sheet_posts, dates, False
     return sheet_posts, sheet_dates, True
 
 
