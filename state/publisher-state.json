@@ -1,5 +1,5 @@
 {
-  "next_index": 20,
+  "next_index": 21,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -78,6 +78,10 @@
       "instagram": true
     },
     "practice-11-rhythm": {
+      "telegram": true,
+      "instagram": true
+    },
+    "09-kitchen-window": {
       "telegram": true,
       "instagram": true
     }
