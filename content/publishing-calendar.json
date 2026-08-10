@@ -1,7 +1,7 @@
 {
   "timezone": "Europe/Moscow",
   "publish_time": "19:00",
-  "use_local_dates_with_sheet_content": true,
+  "use_local_dates_with_sheet_content": false,
   "start_date": "2026-06-08",
   "cadence_days": "post 7 moved to 2026-06-20; then every 3 days with Sunday dates shifted to Monday and cadence continuing from the shifted Monday; first six already-published dates are preserved",
   "rules": {
