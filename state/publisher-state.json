@@ -1,5 +1,5 @@
 {
-  "next_index": 21,
+  "next_index": 22,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -82,6 +82,10 @@
       "instagram": true
     },
     "09-kitchen-window": {
+      "telegram": true,
+      "instagram": true
+    },
+    "practice-12-no-practice": {
       "telegram": true,
       "instagram": true
     }
