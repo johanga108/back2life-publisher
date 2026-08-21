@@ -104,19 +104,24 @@ def load_content() -> tuple[list[dict[str, str]], list[date], bool]:
         row for row in rows[1:] if any(value.strip() for value in row[:3])
     ]
     if len(content_rows) != len(posts):
-        raise RuntimeError(
-            f"Expected {len(posts)} content rows in the Codex sheet, "
-            f"found {len(content_rows)}"
+        print(
+            "WARNING: Codex sheet row count differs from local queue: "
+            f"local={len(posts)}, sheet={len(content_rows)}. "
+            "Using sheet rows where available and local queue for the tail.",
+            file=sys.stderr,
         )
-    sheet_posts: list[dict[str, str]] = []
-    sheet_dates: list[date] = []
-    for index, row in enumerate(content_rows):
+    sheet_posts: list[dict[str, str]] = [dict(post) for post in posts]
+    sheet_dates: list[date] = list(dates)
+    for index, row in enumerate(content_rows[: len(posts)]):
         if len(row) < 3 or not all(value.strip() for value in row[:3]):
             raise RuntimeError(f"Incomplete Codex sheet row: {index + 2}")
-        sheet_dates.append(date.fromisoformat(row[0].strip()))
-        sheet_posts.append(
+        sheet_date = date.fromisoformat(row[0].strip())
+        if index < len(sheet_dates):
+            sheet_dates[index] = sheet_date
+        else:
+            sheet_dates.append(sheet_date)
+        sheet_posts[index].update(
             {
-                **posts[index],
                 "title": row[1].strip(),
                 "text": row[2].strip(),
             }
