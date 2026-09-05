@@ -15,8 +15,11 @@ Page support is optional and currently disabled.
 - `content/publishing-calendar.json`: allowed publication dates, 19:00 Moscow
   publication time, and conflict rules.
 - `content/connect-socials.md`: Russian setup checklist for all platforms.
+- `content/threads-posts.json`: standalone daily morning Threads queue.
 - `scripts/publish_next.py`: sends the next post to enabled platforms.
+- `scripts/publish_threads_daily.py`: sends one standalone Threads post per day.
 - `state/publisher-state.json`: generated automatically after the first send.
+- `state/threads-state.json`: progress for the standalone daily Threads queue.
 
 ## Configure channels
 
@@ -45,6 +48,10 @@ The publisher saves progress after each successful platform send. If one API
 fails, rerun the command: the successful platform will not receive a duplicate.
 The automation should run once per day at 19:00 Europe/Moscow. On non-due,
 early, or blocked dates the publisher exits without sending anything.
+
+The standalone Threads queue publishes one short text-only post per day at
+09:00 Europe/Moscow from `content/threads-posts.json`. It has separate state
+and does not advance the Telegram/Instagram publishing queue.
 
 The editable source for publication dates, titles, and post texts is the Google
 Sheets tab `Codex`. The publisher downloads it before each run. Image paths

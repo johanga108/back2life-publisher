@@ -6,3 +6,4 @@ tmp/
 
 # This file must be tracked in GitHub so Actions remember what is already posted.
 !state/publisher-state.json
+!state/threads-state.json
