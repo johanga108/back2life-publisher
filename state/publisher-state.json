@@ -1,5 +1,5 @@
 {
-  "next_index": 29,
+  "next_index": 28,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -114,8 +114,7 @@
       "instagram": true
     },
     "13-sleep-dreams": {
-      "telegram": true,
-      "instagram": true
+      "telegram": true
     }
   }
 }

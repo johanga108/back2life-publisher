@@ -6,6 +6,24 @@ on:
     # off-peak minutes and publish only when a post is due.
     - cron: "7 * * * *"
   workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform to publish"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - telegram
+          - vk
+          - instagram
+          - threads
+          - facebook
+      force:
+        description: "Publish immediately, ignoring the schedule"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -87,9 +105,19 @@ jobs:
 
       - name: Publish next due post
         id: publish
+        env:
+          PUBLISH_PLATFORM: ${{ github.event.inputs.platform || 'all' }}
+          PUBLISH_FORCE: ${{ github.event.inputs.force || 'false' }}
         run: |
           set +e
-          python3 scripts/publish_next.py > publisher-output.log 2>&1
+          args=()
+          if [ "$PUBLISH_PLATFORM" != "all" ]; then
+            args+=(--platform "$PUBLISH_PLATFORM")
+          fi
+          if [ "$PUBLISH_FORCE" = "true" ]; then
+            args+=(--force)
+          fi
+          python3 scripts/publish_next.py "${args[@]}" > publisher-output.log 2>&1
           code=$?
           cat publisher-output.log
           {
