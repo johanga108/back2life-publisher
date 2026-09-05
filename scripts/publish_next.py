@@ -72,6 +72,10 @@ def load_json(path: Path, default: Any) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def normalize_title(value: str) -> str:
+    return " ".join(value.casefold().split())
+
+
 def load_content() -> tuple[list[dict[str, str]], list[date], bool]:
     posts: list[dict[str, str]] = load_json(POSTS_PATH, [])
     calendar: dict[str, Any] = load_json(CALENDAR_PATH, {})
@@ -107,14 +111,15 @@ def load_content() -> tuple[list[dict[str, str]], list[date], bool]:
         print(
             "WARNING: Codex sheet row count differs from local queue: "
             f"local={len(posts)}, sheet={len(content_rows)}. "
-            "Using sheet rows where available and local queue for the tail.",
+            "Matching sheet rows by title to avoid shifting text onto the wrong image.",
             file=sys.stderr,
         )
     sheet_posts: list[dict[str, str]] = [dict(post) for post in posts]
     sheet_dates: list[date] = list(dates)
-    for index, row in enumerate(content_rows[: len(posts)]):
+
+    def apply_sheet_row(index: int, row: list[str], row_number: int) -> None:
         if len(row) < 3 or not all(value.strip() for value in row[:3]):
-            raise RuntimeError(f"Incomplete Codex sheet row: {index + 2}")
+            raise RuntimeError(f"Incomplete Codex sheet row: {row_number}")
         sheet_date = date.fromisoformat(row[0].strip())
         if index < len(sheet_dates):
             sheet_dates[index] = sheet_date
@@ -126,6 +131,39 @@ def load_content() -> tuple[list[dict[str, str]], list[date], bool]:
                 "text": row[2].strip(),
             }
         )
+
+    if len(content_rows) == len(posts):
+        for index, row in enumerate(content_rows[: len(posts)]):
+            apply_sheet_row(index, row, index + 2)
+    else:
+        title_to_index: dict[str, int] = {}
+        duplicate_titles: set[str] = set()
+        for index, post in enumerate(posts):
+            key = normalize_title(post.get("title", ""))
+            if not key:
+                continue
+            if key in title_to_index:
+                duplicate_titles.add(key)
+            else:
+                title_to_index[key] = index
+
+        unmatched_titles: list[str] = []
+        for row_number, row in enumerate(content_rows, start=2):
+            if len(row) < 3 or not all(value.strip() for value in row[:3]):
+                raise RuntimeError(f"Incomplete Codex sheet row: {row_number}")
+            key = normalize_title(row[1].strip())
+            index = title_to_index.get(key)
+            if index is None or key in duplicate_titles:
+                unmatched_titles.append(row[1].strip())
+                continue
+            apply_sheet_row(index, row, row_number)
+
+        if unmatched_titles:
+            print(
+                "WARNING: Some Codex sheet rows could not be matched by title: "
+                + "; ".join(unmatched_titles[:5]),
+                file=sys.stderr,
+            )
     if calendar.get("use_local_dates_with_sheet_content"):
         return sheet_posts, dates, False
     return sheet_posts, sheet_dates, True
