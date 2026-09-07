@@ -104,14 +104,24 @@ def load_content() -> tuple[list[dict[str, str]], list[date], bool]:
         raise RuntimeError(
             "Could not fetch CONTENT_SHEET_CSV_URL after 3 attempts"
         ) from last_error
+    header = [value.strip().casefold() for value in rows[0]] if rows else []
+    id_column = next(
+        (
+            index
+            for index, value in enumerate(header)
+            if value in {"id", "post_id", "post id"}
+        ),
+        None,
+    )
     content_rows = [
-        row for row in rows[1:] if any(value.strip() for value in row[:3])
+        (row_number, row)
+        for row_number, row in enumerate(rows[1:], start=2)
+        if any(value.strip() for value in row[:3])
     ]
     if len(content_rows) != len(posts):
         print(
             "WARNING: Codex sheet row count differs from local queue: "
-            f"local={len(posts)}, sheet={len(content_rows)}. "
-            "Matching sheet rows by title to avoid shifting text onto the wrong image.",
+            f"local={len(posts)}, sheet={len(content_rows)}.",
             file=sys.stderr,
         )
     sheet_posts: list[dict[str, str]] = [dict(post) for post in posts]
@@ -129,13 +139,45 @@ def load_content() -> tuple[list[dict[str, str]], list[date], bool]:
             {
                 "title": row[1].strip(),
                 "text": row[2].strip(),
+                "_sheet_managed": "1",
             }
         )
 
-    if len(content_rows) == len(posts):
-        for index, row in enumerate(content_rows[: len(posts)]):
-            apply_sheet_row(index, row, index + 2)
+    if id_column is not None:
+        local_by_id = {post.get("id", ""): index for index, post in enumerate(posts)}
+        seen_ids: set[str] = set()
+        for row_number, row in content_rows:
+            post_id = row[id_column].strip() if len(row) > id_column else ""
+            if not post_id:
+                raise RuntimeError(
+                    f"Codex sheet row {row_number} has content but no post ID"
+                )
+            if post_id in seen_ids:
+                raise RuntimeError(f"Duplicate post ID in Codex sheet: {post_id}")
+            index = local_by_id.get(post_id)
+            if index is None:
+                raise RuntimeError(
+                    f"Unknown post ID in Codex sheet row {row_number}: {post_id}"
+                )
+            seen_ids.add(post_id)
+            apply_sheet_row(index, row, row_number)
+
+        missing_ids = [post["id"] for post in posts if post["id"] not in seen_ids]
+        if missing_ids:
+            print(
+                "WARNING: Local posts missing from Codex sheet: "
+                + "; ".join(missing_ids[:5]),
+                file=sys.stderr,
+            )
+    elif len(content_rows) == len(posts):
+        for index, (row_number, row) in enumerate(content_rows[: len(posts)]):
+            apply_sheet_row(index, row, row_number)
     else:
+        print(
+            "WARNING: Codex sheet has no ID column. Matching rows by title; "
+            "renamed posts will not be synchronized.",
+            file=sys.stderr,
+        )
         title_to_index: dict[str, int] = {}
         duplicate_titles: set[str] = set()
         for index, post in enumerate(posts):
@@ -148,7 +190,7 @@ def load_content() -> tuple[list[dict[str, str]], list[date], bool]:
                 title_to_index[key] = index
 
         unmatched_titles: list[str] = []
-        for row_number, row in enumerate(content_rows, start=2):
+        for row_number, row in content_rows:
             if len(row) < 3 or not all(value.strip() for value in row[:3]):
                 raise RuntimeError(f"Incomplete Codex sheet row: {row_number}")
             key = normalize_title(row[1].strip())
@@ -1278,6 +1320,11 @@ def main() -> int:
         raise RuntimeError("Publishing calendar has fewer dates than prepared posts.")
 
     post = posts[index]
+    if using_sheet_dates and post.get("_sheet_managed") != "1":
+        raise RuntimeError(
+            f"Next post {post['id']} is missing from the Codex sheet. "
+            "Publishing stopped instead of using stale local content."
+        )
     image_value = post.get("image")
     image_path = ROOT / image_value if image_value else None
     if image_path is not None and not image_path.exists():
