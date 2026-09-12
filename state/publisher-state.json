@@ -1,5 +1,5 @@
 {
-  "next_index": 30,
+  "next_index": 31,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -119,7 +119,8 @@
     },
     "14-remembering-freedom": {
       "instagram": true,
-      "threads": true
+      "threads": true,
+      "telegram": true
     }
   }
 }
