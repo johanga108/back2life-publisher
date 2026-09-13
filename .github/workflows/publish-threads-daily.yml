@@ -4,6 +4,12 @@ on:
   schedule:
     # 09:07 Europe/Moscow.
     - cron: "7 6 * * *"
+  # Temporary non-publishing probe. Remove after the current diagnosis.
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-threads-daily.yml"
   workflow_dispatch:
     inputs:
       force:
@@ -65,15 +71,35 @@ jobs:
         id: publish
         env:
           PUBLISH_FORCE: ${{ github.event.inputs.force || 'false' }}
+          PUBLISH_CHECK_CONFIG: ${{ github.event_name == 'push' }}
         run: |
           set +e
           args=()
           if [ "$PUBLISH_FORCE" = "true" ]; then
             args+=(--force)
           fi
+          if [ "$PUBLISH_CHECK_CONFIG" = "true" ]; then
+            args+=(--check-config)
+          fi
           python3 scripts/publish_threads_daily.py "${args[@]}" > threads-output.log 2>&1
           code=$?
           cat threads-output.log
+          if [ "$code" -ne 0 ]; then
+            PUBLISH_EXIT_CODE="$code" python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          message = Path("threads-output.log").read_text(
+              encoding="utf-8", errors="replace"
+          )[-3000:]
+          message = (
+              message.replace("%", "%25")
+              .replace("\r", "%0D")
+              .replace("\n", "%0A")
+          )
+          print(f"::error title=Daily Threads publisher failed::{message}")
+          PY
+          fi
           {
             echo "## Daily Threads output"
             echo
