@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, time as day_time
+from datetime import date, datetime, time as day_time
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -126,6 +126,15 @@ def main() -> int:
 
     now = local_now(args.date)
     today = now.date().isoformat()
+    pause_until_value = state.get("pause_until")
+    if not args.force and pause_until_value:
+        pause_until = date.fromisoformat(str(pause_until_value))
+        if now.date() < pause_until:
+            print(
+                "Daily Threads publishing is paused until "
+                f"{pause_until.isoformat()} {THREADS_TIMEZONE}."
+            )
+            return 0
     scheduled_at = datetime.combine(now.date(), morning_time()).replace(
         tzinfo=ZoneInfo(THREADS_TIMEZONE)
     )
