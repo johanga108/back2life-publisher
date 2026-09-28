@@ -1,5 +1,5 @@
 {
-  "next_index": 31,
+  "next_index": 32,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -121,6 +121,10 @@
       "instagram": true,
       "threads": true,
       "telegram": true
+    },
+    "practice-17-week-goal": {
+      "telegram": true,
+      "instagram": true
     }
   }
 }
