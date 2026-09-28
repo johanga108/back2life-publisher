@@ -1,9 +1,8 @@
 # Back2Life scheduled posts
 
-This folder contains a 57-post publishing plan for Telegram, VK, Instagram,
-and optional Threads cross-posting: 28 visual posts about detention experience
-plus 29 short practice/life posts whose images are still pending. Facebook
-Page support is optional and currently disabled.
+This folder contains a 63-post publishing plan for Telegram, VK, Instagram,
+and optional Threads cross-posting. Facebook Page support is optional and
+currently disabled.
 
 ## Contents
 
@@ -60,13 +59,14 @@ before they can be published to Instagram.
 
 ## Calendar assumptions
 
-- Visual series starts on Monday, June 8, 2026 and repeats every four days.
-- Practice/life series starts on Wednesday, June 10, 2026 and repeats
-  every four days.
-- Together they create one post every two days.
-- All posts publish at 19:00 Europe/Moscow.
-- Sundays and month-end dates are allowed in this merged plan so the two
-  four-day sequences stay interleaved exactly as requested.
+- The main Telegram/Instagram queue publishes every 2-3 days.
+- The normal interval is three days. If the next calculated date is Sunday,
+  the post moves one day earlier to Saturday, producing a two-day interval.
+- The Google Sheets tab `Codex` is authoritative for dates, titles, and text;
+  future dates in `content/publishing-calendar.json` mirror it as the local
+  fallback, while published dates stay as history.
+- All main-queue posts publish at 19:00 Europe/Moscow.
+- The standalone daily Threads queue is separate and keeps its own schedule.
 
 ## Visual direction
 
