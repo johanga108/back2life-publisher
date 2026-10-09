@@ -1,5 +1,5 @@
 {
-  "next_index": 34,
+  "next_index": 35,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -135,7 +135,8 @@
       "instagram": true
     },
     "15-children-noise": {
-      "telegram": true
+      "telegram": true,
+      "instagram": true
     }
   }
 }
