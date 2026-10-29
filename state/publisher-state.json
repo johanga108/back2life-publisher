@@ -1,5 +1,5 @@
 {
-  "next_index": 40,
+  "next_index": 41,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -155,6 +155,10 @@
       "instagram": true
     },
     "practice-21-return-phrase": {
+      "telegram": true,
+      "instagram": true
+    },
+    "18-tiredness": {
       "telegram": true,
       "instagram": true
     }
