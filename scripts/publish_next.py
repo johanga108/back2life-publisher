@@ -893,8 +893,7 @@ def wait_for_instagram_container(
 
 def publish_instagram(post: dict[str, str], image_path: Path | None) -> None:
     if image_path is None:
-        print("instagram: text-only post skipped because Instagram requires media")
-        return
+        raise RuntimeError("Instagram requires an image for this post")
     token, user_id = require_env("IG_ACCESS_TOKEN", "IG_USER_ID")
     version = os.getenv("IG_API_VERSION", "v25.0")
     jpeg_path = titled_image_path("instagram", image_path, post["title"])
