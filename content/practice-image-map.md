@@ -25,3 +25,23 @@ First batch of real-photo images for the practice/life series.
 | practice-20-everyday | Быт как практика | 2026-06-06 17.21.15.jpg | домашний быт |
 | practice-21-return-phrase | Фраза, которая возвращает | 2026-06-06 17.20.17.jpg | идти и возвращаться к себе |
 | practice-30-hear-yourself | Не менять себя, а слышать | practice-30-hear-yourself-source.jpg | мягкий личный портрет, принятие и контакт с собой |
+
+## Reused Personal Photo Set
+
+These future-post variants use new crops of Johanga's existing personal photos.
+
+| Post ID | Source image | Visual note |
+|---|---|---|
+| practice-23-care-control | practice-11-rhythm.jpg | забота и контакт с ребёнком |
+| practice-24-live-group | practice-06-noise.jpg | живая сцена с детьми и включённость |
+| practice-25-efficiency | practice-19-no-rush.jpg | пауза на балконе вместо гонки |
+| practice-26-message | practice-10-pause.jpg | остановка перед реакцией |
+| practice-27-listening | practice-21-return-phrase.jpg | внимание и слушание в движении |
+| practice-28-signs | practice-17-week-goal.jpg | опора и проверка направления |
+| practice-29-family | practice-20-everyday.jpg | семейный контакт в быту |
+| article-01-growth-without-force | practice-02-resistance.jpg | спокойное движение без давления |
+| article-02-awareness-not-calm | practice-07-anxiety.jpg | живое состояние вместо идеального спокойствия |
+| article-03-coaching-vs-motivation-therapy | practice-30-hear-yourself.jpg | личный портрет и профессиональное присутствие |
+| article-04-gratitude-practice | practice-04-small-wishes.jpg | простая повседневная благодарность |
+| article-05-self-regulation-techniques | practice-01-morning-body.jpg | телесная саморегуляция |
+| article-06-growth-without-violence | practice-08-weather.jpg | мягкость, простор и собственный ритм |
