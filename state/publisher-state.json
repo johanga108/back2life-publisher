@@ -1,5 +1,5 @@
 {
-  "next_index": 42,
+  "next_index": 43,
   "platforms": {
     "01-tweezers": {
       "telegram": true,
@@ -163,6 +163,10 @@
       "instagram": true
     },
     "practice-22-joy": {
+      "telegram": true,
+      "instagram": true
+    },
+    "28-between-events": {
       "telegram": true,
       "instagram": true
     }
