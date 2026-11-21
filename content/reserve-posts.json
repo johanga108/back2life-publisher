@@ -1,0 +1,22 @@
+{
+  "posts": [
+    {
+      "id": "28-between-events",
+      "source_queue_position": 43,
+      "title": "Как не измотать себя, когда ждёшь новостей, а их всё нет?",
+      "image": "assets/posts/28-between-events.png",
+      "original_publish_date": "2026-11-21",
+      "held_at": "2026-11-21",
+      "release_mode": "manual_only",
+      "telegram": {
+        "published": true,
+        "deleted_manually": true
+      },
+      "instagram": {
+        "published": true,
+        "deleted": false
+      },
+      "note": "Keep in reserve. Publish again only after Johanga explicitly requests a post and approves a new date."
+    }
+  ]
+}
