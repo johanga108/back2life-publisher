@@ -59,9 +59,7 @@ before they can be published to Instagram.
 
 ## Calendar assumptions
 
-- The main Telegram/Instagram queue publishes every 3-4 days.
-- The normal interval is three days. If the next calculated date is Sunday,
-  the post moves one day later to Monday, producing a four-day interval.
+- The main Telegram/Instagram queue publishes once a week on Tuesday.
 - The Google Sheets tab `Codex` is authoritative for dates, titles, and text;
   future dates in `content/publishing-calendar.json` mirror it as the local
   fallback, while published dates stay as history.
